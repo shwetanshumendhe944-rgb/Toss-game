@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coin Toss Arena — Call it. Flip it. Win it.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --felt1:#1a5c42; --felt2:#0c3626; --felt3:#062318;
+  --gold:#f3c14b; --gold2:#ffdf8e; --gold3:#8f6a1c; --gold4:#5c420f;
+  --cream:#f6ecd4; --ink:#231a0e;
+  --red:#e0574b; --red2:#8f2f27;
+  --silver:#cfd6df; --silver2:#8b95a3;
+  --panel:#0e3a2b; --panel2:#0a2c20;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  font-family:'Outfit',sans-serif; color:var(--cream); overflow-x:hidden;
+  background:
+    radial-gradient(1200px 700px at 50% -10%, #2a7a58 0%, transparent 60%),
+    radial-gradient(900px 600px at 85% 110%, #14483370 0%, transparent 60%),
+    radial-gradient(ellipse at center, var(--felt1) 0%, var(--felt2) 55%, var(--felt3) 100%);
+  min-height:100vh;
+}
+/* felt grain */
+body::after{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:0; opacity:.35;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.06 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+/* wooden rail around the table */
+.frame{position:fixed; inset:8px; border:10px solid #55331b; border-radius:22px; pointer-events:none; z-index:50;
+  box-shadow: inset 0 0 0 2px #c9973f, inset 0 0 0 5px #3a2210, inset 0 0 40px rgba(0,0,0,.5), 0 0 30px rgba(0,0,0,.6);
+}
+.frame::before,.frame::after{content:""; position:absolute; width:12px;height:12px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #ffe9b0, #b98a2e 60%, #6d4d12); box-shadow:0 1px 3px rgba(0,0,0,.7);}
+.frame::before{top:-4px;left:-4px}.frame::after{bottom:-4px;right:-4px}
+
+/* ambient layers */
+#spot{position:fixed; inset:-40%; z-index:0; pointer-events:none; opacity:.07; mix-blend-mode:screen;
+  background:conic-gradient(from 0deg, transparent 0 40%, #ffe9b0 46%, transparent 54%, transparent 100%);
+  animation:sweep 24s linear infinite;}
+@keyframes sweep{to{transform:rotate(360deg)}}
+#bgfx span{position:fixed; bottom:-30px; border-radius:50%; background:radial-gradient(circle,#ffe9b0,transparent 70%);
+  opacity:0; z-index:0; pointer-events:none; animation:rise linear infinite;}
+@keyframes rise{0%{transform:translateY(0);opacity:0}12%{opacity:.5}90%{opacity:.25}100%{transform:translateY(-105vh);opacity:0}}
+
+.wrap{position:relative; z-index:2; max-width:1060px; margin:0 auto; padding:26px 20px 60px}
+
+/* ---------- MARQUEE ---------- */
+.marquee{position:relative; margin:6px auto 26px; max-width:640px; text-align:center;
+  background:linear-gradient(180deg,#4a1d1c,#2c0f10); border:3px solid var(--gold); border-radius:14px;
+  padding:22px 30px 18px; box-shadow:0 0 0 3px #2a0f10, 0 0 34px rgba(243,193,75,.28), inset 0 0 26px rgba(0,0,0,.55);}
+.marquee h1{font-family:'Alfa Slab One',serif; font-weight:400; letter-spacing:2px;
+  font-size:clamp(2rem,6.4vw,3.4rem); line-height:1;
+  color:var(--gold2);
+  text-shadow:0 1px 0 #fff3c9, 0 3px 0 #7a5a12, 0 6px 14px rgba(0,0,0,.65);}
+.marquee h1 em{font-style:normal; color:#ff8d7e; text-shadow:0 1px 0 #ffd2cb,0 3px 0 #7c231a,0 6px 14px rgba(0,0,0,.65)}
+.marquee .tag{margin-top:8px; font-size:.72rem; letter-spacing:.42em; text-transform:uppercase; color:#e9c97f; font-weight:600}
+.bulbs{position:absolute; left:16px; right:16px; display:flex; justify-content:space-between; pointer-events:none}
+.bulbs.t{top:-7px}.bulbs.b{bottom:-7px}
+.bulbs i{width:11px;height:11px;border-radius:50%; background:#ffdf8e;
+  box-shadow:0 0 8px 2px #ffcf5e, 0 0 2px #fff inset; animation:blink 1.15s steps(1) infinite;}
+.bulbs i:nth-child(even){animation-delay:.57s}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:.25; box-shadow:none}}
+
+/* ---------- SCREENS / PANELS ---------- */
+.screen{display:none; animation:popIn .35s ease}
+.screen.on{display:block}
+@keyframes popIn{from{opacity:0; transform:translateY(14px) scale(.985)}to{opacity:1}}
+.panel{background:linear-gradient(180deg,var(--panel),var(--panel2)); border:2px solid #1c5c43; border-radius:14px;
+  box-shadow:0 8px 22px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);}
+
+.namebar{max-width:460px; margin:0 auto 20px; padding:14px 18px; display:flex; align-items:center; gap:12px}
+.namebar label{font-weight:800; letter-spacing:.06em; text-transform:uppercase; font-size:.72rem; color:#ffd97c; white-space:nowrap}
+input[type=text]{flex:1; min-width:0; background:#07241a; border:2px solid #1e5f45; color:var(--cream);
+  padding:10px 14px; border-radius:9px; font:600 1rem 'Outfit'; outline:none; transition:.2s}
+input[type=text]:focus{border-color:var(--gold); box-shadow:0 0 0 3px rgba(243,193,75,.22)}
+
+.modes{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:18px}
+.card{padding:24px 22px; display:flex; flex-direction:column; gap:10px; position:relative; overflow:hidden; transition:transform .2s, box-shadow .2s, border-color .2s}
+.card:hover{transform:translateY(-4px); border-color:var(--gold); box-shadow:0 14px 30px rgba(0,0,0,.45)}
+.card .ic{font-size:34px; filter:drop-shadow(0 3px 4px rgba(0,0,0,.5))}
+.card h2{font-family:'Alfa Slab One'; font-weight:400; font-size:1.25rem; color:var(--gold2); letter-spacing:.5px}
+.card p{font-size:.86rem; color:#cfe3d3; line-height:1.45; flex:1}
+.joinrow{display:flex; gap:8px}
+.joinrow input{text-transform:uppercase; letter-spacing:.2em; font-weight:800}
+
+.btn{cursor:pointer; border:none; border-radius:10px; padding:12px 22px; font:800 .95rem 'Outfit'; letter-spacing:.06em;
+  text-transform:uppercase; transition:transform .08s, box-shadow .08s, filter .2s; user-select:none}
+.btn-gold{background:linear-gradient(180deg,var(--gold2),#e8ab2b 55%,#c88f1a); color:var(--ink);
+  box-shadow:0 5px 0 var(--gold4), 0 9px 16px rgba(0,0,0,.4)}
+.btn-gold:hover{filter:brightness(1.07)}
+.btn-gold:active{transform:translateY(4px); box-shadow:0 1px 0 var(--gold4)}
+.btn-red{background:linear-gradient(180deg,#ff8d7e,#d84a3d 55%,#a93327); color:#fff;
+  box-shadow:0 5px 0 #5e1a12, 0 9px 16px rgba(0,0,0,.4)}
+.btn-red:active{transform:translateY(4px); box-shadow:0 1px 0 #5e1a12}
+.btn-ghost{background:transparent; border:2px solid #2c6b4f; color:#bfe0cd}
+.btn-ghost:hover{border-color:var(--gold); color:var(--gold2)}
+.btn:disabled{opacity:.45; cursor:not-allowed; transform:none!important}
+.btn.big{font-size:1.15rem; padding:16px 40px; border-radius:13px}
+
+select{background:#07241a; color:var(--cream); border:2px solid #1e5f45; border-radius:9px; padding:9px 12px; font:700 .9rem 'Outfit'; outline:none; cursor:pointer}
+select:focus{border-color:var(--gold)}
+.selrow{display:flex; align-items:center; gap:10px; font-size:.8rem; letter-spacing:.12em; text-transform:uppercase; color:#ffd97c; font-weight:800}
+
+/* ---------- WAITING ---------- */
+.waitbox{max-width:520px; margin:0 auto; text-align:center; padding:30px 26px}
+.waitbox h2{font-family:'Alfa Slab One'; font-weight:400; color:var(--gold2); font-size:1.5rem; margin-bottom:6px}
+.waitstatus{color:#cfe3d3; font-size:.95rem; min-height:24px; margin-bottom:16px}
+.ticket{display:inline-block; background:var(--cream); color:var(--ink); border-radius:12px; padding:16px 30px; margin:6px 0 14px;
+  font-family:'Alfa Slab One'; font-size:clamp(1.9rem,7vw,2.7rem); letter-spacing:.34em; text-indent:.34em;
+  border:3px dashed #b98a2e; box-shadow:0 8px 20px rgba(0,0,0,.4); position:relative}
+.ticket::before,.ticket::after{content:""; position:absolute; top:50%; width:18px;height:18px;border-radius:50%; background:var(--panel2); transform:translateY(-50%)}
+.ticket::before{left:-11px}.ticket::after{right:-11px}
+.tip{font-size:.78rem; color:#9fc4ac; margin-top:14px; line-height:1.5}
+.spincoin{display:inline-block; width:20px;height:20px;border-radius:50%; vertical-align:-4px; margin-right:8px;
+  background:radial-gradient(circle at 32% 28%, #ffe9a3, #e8ab2b 60%, #8f6a1c); animation:flipspin 1.1s linear infinite;}
+@keyframes flipspin{0%{transform:rotateX(0)}100%{transform:rotateX(360deg)}}
+.startpulse{animation:startpulse 1.2s ease-in-out infinite}
+@keyframes startpulse{0%,100%{box-shadow:0 5px 0 var(--gold4),0 0 0 0 rgba(243,193,75,.6)}50%{box-shadow:0 5px 0 var(--gold4),0 0 0 14px rgba(243,193,75,0)}}
+
+/* ---------- GAME ---------- */
+.scoreboard{display:grid; grid-template-columns:1fr auto 1fr; gap:14px; align-items:stretch; margin-bottom:6px}
+.ppanel{padding:14px 18px; text-align:center; position:relative; border:2px solid #1c5c43; transition:.3s}
+.ppanel .pname{font-weight:800; text-transform:uppercase; letter-spacing:.12em; font-size:.8rem; color:#d9ecd9; display:flex; justify-content:center; gap:8px; align-items:center; flex-wrap:wrap}
+.ppanel .pscore{font-family:'Alfa Slab One'; font-size:clamp(2.4rem,7vw,3.6rem); line-height:1.05; margin:4px 0 6px}
+.p1 .pscore{color:var(--gold2); text-shadow:0 3px 0 #7a5a12, 0 8px 16px rgba(0,0,0,.5)}
+.p2 .pscore{color:#ffb1a8; text-shadow:0 3px 0 #7c231a, 0 8px 16px rgba(0,0,0,.5)}
+.ppanel .youtag{font-size:.58rem; background:var(--gold); color:var(--ink); padding:2px 7px; border-radius:99px; font-weight:800; letter-spacing:.1em}
+.ppanel .role{font-size:.62rem; letter-spacing:.22em; text-transform:uppercase; font-weight:800; padding:4px 10px; border-radius:99px; display:inline-block}
+.role.caller{background:#3d2c07; color:var(--gold2); border:1px solid var(--gold3)}
+.role.flipper{background:#0a2c40; color:#9fd7ff; border:1px solid #1f5d7e}
+.ppanel.active{border-color:var(--gold); box-shadow:0 0 24px rgba(243,193,75,.35), inset 0 0 18px rgba(243,193,75,.08)}
+.streak{font-size:.75rem; font-weight:800; color:#ff9d5c; min-height:18px}
+.midround{text-align:center; align-self:center; padding:0 6px}
+.midround .rn{font-family:'Alfa Slab One'; font-size:1.05rem; color:var(--cream)}
+.midround .ft{font-size:.62rem; letter-spacing:.2em; color:#9fc4ac; text-transform:uppercase; margin-top:4px}
+
+/* coin */
+.coinzone{position:relative; height:290px; display:grid; place-items:center; perspective:1000px; margin:4px 0 2px}
+.coin-shadow{position:absolute; bottom:26px; width:150px; height:26px; border-radius:50%;
+  background:radial-gradient(ellipse, rgba(0,0,0,.55), transparent 70%);}
+.coin-toss{transform-style:preserve-3d}
+.coin3d{width:186px; height:186px; position:relative; transform-style:preserve-3d; transition:none}
+.coin3d.idle{animation:wobble 4.5s ease-in-out infinite}
+@keyframes wobble{0%,100%{transform:rotateX(-14deg) rotateY(-8deg)}50%{transform:rotateX(16deg) rotateY(10deg)}}
+.face{position:absolute; inset:0; border-radius:50%; backface-visibility:hidden; display:grid; place-items:center;
+  box-shadow:inset 0 0 0 7px rgba(255,255,255,.22), inset 0 0 30px rgba(90,50,0,.5), 0 0 18px rgba(0,0,0,.35);}
+.face .ring{position:absolute; inset:12px; border-radius:50%; border:2px dashed rgba(110,70,5,.45)}
+.face .em{font-size:72px; line-height:1; text-shadow:0 2px 0 rgba(255,255,255,.5), 0 -2px 3px rgba(80,40,0,.6)}
+.face .lbl{position:absolute; bottom:24px; font-family:'Alfa Slab One'; font-size:.8rem; letter-spacing:.35em; text-indent:.35em; color:rgba(90,50,0,.85)}
+.face.heads{transform:translateZ(6px); background:radial-gradient(circle at 32% 28%, #fff0b8, #f6c94f 45%, #d99b1f 78%, #9c660d)}
+.face.tails{transform:rotateX(180deg) translateZ(6px); background:radial-gradient(circle at 32% 28%, #ffffff, #d9dee6 45%, #98a3b1 78%, #5f6975)}
+.face.tails .lbl{color:rgba(40,50,60,.8)}
+#banner{position:absolute; top:6px; left:0; right:0; text-align:center; pointer-events:none; opacity:0; z-index:5}
+#banner.show{animation:bannerin .5s cubic-bezier(.2,1.6,.4,1) forwards}
+@keyframes bannerin{from{opacity:0; transform:scale(.6)}to{opacity:1; transform:scale(1)}}
+#bannerMain{font-family:'Alfa Slab One'; font-size:clamp(1.8rem,5.5vw,2.8rem); color:var(--gold2);
+  text-shadow:0 3px 0 #6d4d12, 0 8px 22px rgba(0,0,0,.7)}
+#bannerSub{font-weight:800; letter-spacing:.14em; text-transform:uppercase; font-size:.8rem; color:#ffe9b0; margin-top:2px}
+#emoLayer{position:absolute; inset:0; pointer-events:none; overflow:visible; z-index:6}
+.bigemo{position:absolute; bottom:18%; font-size:54px; animation:floatUp 2.5s ease-out forwards}
+@keyframes floatUp{0%{opacity:0; transform:translateY(0) scale(.5)}15%{opacity:1; transform:translateY(-30px) scale(1.15)}100%{opacity:0; transform:translateY(-230px) scale(1) rotate(14deg)}}
+
+#actions{text-align:center; min-height:118px; padding:6px 14px}
+.prompt{font-weight:800; letter-spacing:.06em; color:#dcefe0; margin-bottom:14px; font-size:1.02rem}
+.prompt small{display:block; margin-top:5px; font-weight:600; letter-spacing:.14em; font-size:.66rem; text-transform:uppercase; color:#8fb89e}
+.callbtns{display:flex; gap:16px; justify-content:center; flex-wrap:wrap}
+.callbtn{display:flex; align-items:center; gap:12px; padding:14px 26px; border-radius:13px; cursor:pointer; border:2px solid;
+  font:800 1.05rem 'Outfit'; letter-spacing:.1em; transition:transform .08s, box-shadow .08s; user-select:none}
+.callbtn .mini{width:34px;height:34px;border-radius:50%; display:grid; place-items:center; font-size:17px; box-shadow:inset 0 0 0 3px rgba(255,255,255,.3)}
+.callbtn.h{background:linear-gradient(180deg,#ffe9a3,#e8ab2b); color:var(--ink); border-color:var(--gold3); box-shadow:0 5px 0 var(--gold4),0 10px 18px rgba(0,0,0,.4)}
+.callbtn.h .mini{background:radial-gradient(circle at 35% 30%,#fff3c9,#d99b1f)}
+.callbtn.t{background:linear-gradient(180deg,#f4f7fa,#aeb8c4); color:#20262e; border-color:#5f6975; box-shadow:0 5px 0 #3a424c,0 10px 18px rgba(0,0,0,.4)}
+.callbtn.t .mini{background:radial-gradient(circle at 35% 30%,#fff,#8b95a3)}
+.callbtn:active{transform:translateY(4px); box-shadow:0 1px 0 rgba(0,0,0,.4)}
+.chosen{display:inline-block; margin:8px 6px 0; padding:10px 22px; border-radius:99px; font-weight:800; letter-spacing:.14em; font-size:.85rem;
+  background:#241804; color:var(--gold2); border:1px solid var(--gold3)}
+.dots::after{content:""; animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+
+.history{display:flex; gap:7px; justify-content:center; flex-wrap:wrap; margin-top:10px; min-height:26px}
+.hcoin{width:24px;height:24px;border-radius:50%; display:grid; place-items:center; font:800 .62rem 'Outfit';
+  animation:popIn .3s ease; box-shadow:0 2px 4px rgba(0,0,0,.4)}
+.hcoin.H{background:radial-gradient(circle at 35% 30%,#ffe9a3,#d99b1f); color:#5c420f}
+.hcoin.T{background:radial-gradient(circle at 35% 30%,#fff,#98a3b1); color:#2c3440}
+.hcoin.w0{box-shadow:0 0 0 2px var(--felt2),0 0 0 4px var(--gold)}
+.hcoin.w1{box-shadow:0 0 0 2px var(--felt2),0 0 0 4px var(--red)}
+.histlbl{width:100%; text-align:center; font-size:.62rem; letter-spacing:.28em; color:#8fb89e; text-transform:uppercase; margin-bottom:2px}
+
+/* ---------- CHAT ---------- */
+#chatToggle{position:fixed; right:18px; bottom:18px; z-index:70; width:56px; height:56px; border-radius:50%; border:2px solid var(--gold3);
+  background:linear-gradient(180deg,#ffe9a3,#e8ab2b); font-size:24px; cursor:pointer; box-shadow:0 6px 16px rgba(0,0,0,.5); transition:transform .15s}
+#chatToggle:hover{transform:scale(1.08)}
+#chatBadge{position:absolute; top:-5px; right:-5px; background:var(--red); color:#fff; font:800 .68rem 'Outfit';
+  min-width:20px; height:20px; border-radius:99px; display:none; place-items:center; padding:0 5px; border:2px solid var(--felt3)}
+#chatPanel{position:fixed; right:18px; bottom:84px; width:min(300px,calc(100vw - 36px)); z-index:70; display:none; flex-direction:column; overflow:hidden}
+#chatPanel.on{display:flex; animation:popIn .25s ease}
+#chatPanel header{display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:#0a2c20; border-bottom:2px solid #1c5c43;
+  font-family:'Alfa Slab One'; color:var(--gold2); font-size:.9rem; letter-spacing:.06em}
+#chatPanel header button{background:none;border:none;color:#9fc4ac;font-size:18px;cursor:pointer}
+#chatMsgs{height:170px; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:7px; scrollbar-width:thin}
+.msg{max-width:82%; padding:7px 12px; border-radius:12px; font-size:.85rem; line-height:1.35; animation:popIn .2s ease}
+.msg b{display:block; font-size:.6rem; letter-spacing:.14em; text-transform:uppercase; opacity:.7; margin-bottom:2px}
+.msg.them{background:#14483a; align-self:flex-start; border-bottom-left-radius:3px}
+.msg.me{background:#4a3708; align-self:flex-end; border-bottom-right-radius:3px}
+.msg.sys{align-self:center; background:none; color:#8fb89e; font-size:.68rem; letter-spacing:.1em; text-transform:uppercase}
+.quickemo{display:flex; gap:4px; padding:7px 10px; border-top:1px solid #1c5c43}
+.quickemo button{flex:1; background:#0a2c20; border:1px solid #1c5c43; border-radius:8px; font-size:17px; padding:5px 0; cursor:pointer; transition:.15s}
+.quickemo button:hover{transform:translateY(-3px); border-color:var(--gold)}
+.chatin{display:flex; gap:7px; padding:9px; border-top:1px solid #1c5c43}
+.chatin input{flex:1; padding:8px 12px; font-size:.85rem}
+.chatin button{background:var(--gold); border:none; border-radius:8px; padding:0 15px; cursor:pointer; font-size:16px}
+
+/* ---------- OVERLAYS ---------- */
+.overlay{position:fixed; inset:0; z-index:80; display:none; place-items:center; background:rgba(4,20,14,.82); backdrop-filter:blur(3px); padding:20px}
+.overlay.on{display:grid; animation:popIn .3s ease}
+.obox{max-width:480px; width:100%; text-align:center; padding:34px 28px}
+.obox h2{font-family:'Alfa Slab One'; font-weight:400; font-size:clamp(1.7rem,5vw,2.5rem); color:var(--gold2);
+  text-shadow:0 3px 0 #6d4d12; margin-bottom:6px}
+.obox .fin{font-size:1.15rem; font-weight:800; margin:10px 0 18px; color:var(--cream)}
+.stats{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:22px; text-align:left}
+.stat{background:#07241a; border:1px solid #1c5c43; border-radius:10px; padding:12px 14px}
+.stat h4{font-size:.64rem; letter-spacing:.2em; text-transform:uppercase; color:#9fc4ac; margin-bottom:6px}
+.stat div{font-size:.85rem; font-weight:600; line-height:1.7}
+.obox .row{display:flex; gap:12px; justify-content:center; flex-wrap:wrap}
+#confetti{position:fixed; inset:0; pointer-events:none; z-index:90; overflow:hidden}
+#confetti i{position:absolute; top:-24px; border-radius:2px; animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(112vh) rotate(760deg)}}
+
+#muteBtn{position:fixed; top:18px; right:18px; z-index:70; width:44px;height:44px; border-radius:50%;
+  background:#0a2c20; border:2px solid #1c5c43; color:var(--cream); font-size:18px; cursor:pointer; transition:.2s}
+#muteBtn:hover{border-color:var(--gold); transform:scale(1.08)}
+#toast{position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-80px); z-index:99;
+  background:var(--cream); color:var(--ink); font-weight:800; padding:11px 22px; border-radius:99px; font-size:.85rem;
+  box-shadow:0 10px 26px rgba(0,0,0,.5); transition:transform .35s cubic-bezier(.2,1.4,.4,1); border:2px solid var(--gold3)}
+#toast.on{transform:translateX(-50%) translateY(0)}
+
+@media (max-width:640px){
+  .wrap{padding:18px 12px 90px}
+  .coinzone{height:240px}
+  .coin3d{width:148px;height:148px}
+  .face .em{font-size:56px}
+  .scoreboard{gap:8px}
+  .ppanel{padding:10px 8px}
+  .midround .rn{font-size:.8rem}
+  #chatPanel{bottom:82px}
+}
+</style>
+</head>
+<body>
+<div class="frame"></div>
+<div id="spot"></div>
+<div id="bgfx"></div>
+<button id="muteBtn" title="Sound on/off">🔊</button>
+<div id="toast"></div>
+<div id="confetti"></div>
+
+<div class="wrap">
+  <div class="marquee">
+    <div class="bulbs t" id="bulbsT"></div>
+    <h1>COIN <em>TOSS</em></h1>
+    <div class="tag">Call it &nbsp;•&nbsp; Flip it &nbsp;•&nbsp; Win it</div>
+    <div class="bulbs b" id="bulbsB"></div>
+  </div>
+
+  <!-- SETUP -->
+  <section class="screen on" id="scrSetup">
+    <div class="panel namebar">
+      <label for="nameInput">🎩 Your name</label>
+      <input type="text" id="nameInput" maxlength="14" placeholder="e.g. Alex" autocomplete="off">
+    </div>
+    <div class="modes">
+      <div class="panel card">
+        <div class="ic">🏟️</div>
+        <h2>Create a Room</h2>
+        <p>Start an online table, get a secret room code, and send it to your friend. You flip first.</p>
+        <button class="btn btn-gold" id="btnCreate">Create Room</button>
+      </div>
+      <div class="panel card">
+        <div class="ic">🎟️</div>
+        <h2>Join a Room</h2>
+        <p>Got a code from your friend? Punch it in and take your seat at their table.</p>
+        <div class="joinrow">
+          <input type="text" id="joinCode" maxlength="5" placeholder="CODE" autocomplete="off">
+          <button class="btn btn-red" id="btnJoin" style="white-space:nowrap">Join</button>
+        </div>
+      </div>
+      <div class="panel card">
+        <div class="ic">🤝</div>
+        <h2>Same Device</h2>
+        <p>No internet for your friend? Share one screen and pass it back and forth.</p>
+        <div class="selrow">First to <select id="selLocal"><option>3</option><option selected>5</option><option>10</option></select></div>
+        <button class="btn btn-ghost" id="btnLocal">Play Offline</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- WAITING -->
+  <section class="screen" id="scrWait">
+    <div class="panel waitbox">
+      <h2 id="waitTitle">Your room is open!</h2>
+      <div class="waitstatus" id="waitStatus"><span class="spincoin"></span>Waiting for your friend<span class="dots"></span></div>
+      <div id="codeWrap">
+        <div class="ticket" id="codeTicket">·····</div><br>
+        <button class="btn btn-gold" id="btnCopy" style="margin:8px 0 4px">📋 Copy Code</button>
+      </div>
+      <div id="hostCtl" style="display:none; margin:16px 0 6px">
+        <div class="selrow" style="justify-content:center; margin-bottom:14px">First to <select id="selTarget"><option>3</option><option selected>5</option><option>10</option></select></div>
+        <button class="btn btn-gold big" id="btnStart" disabled>Start Match</button>
+      </div>
+      <div style="margin-top:18px"><button class="btn btn-ghost" id="btnCancel">← Back</button></div>
+      <p class="tip">Your friend opens this same page on their device and picks <b>Join a Room</b> with your code.</p>
+    </div>
+  </section>
+
+  <!-- GAME -->
+  <section class="screen" id="scrGame">
+    <div class="scoreboard">
+      <div class="panel ppanel p1" id="pp0">
+        <div class="pname"><span id="p0name">Player 1</span><span class="youtag" id="p0you" style="display:none">YOU</span></div>
+        <div class="pscore" id="p0score">0</div>
+        <div class="streak" id="p0streak"></div>
+        <span class="role caller" id="p0role" style="display:none">CALLER</span>
+      </div>
+      <div class="midround">
+        <div class="rn">ROUND <span id="roundNum">1</span></div>
+        <div class="ft">First to <span id="targetNum">5</span></div>
+      </div>
+      <div class="panel ppanel p2" id="pp1">
+        <div class="pname"><span id="p1name">Player 2</span><span class="youtag" id="p1you" style="display:none">YOU</span></div>
+        <div class="pscore" id="p1score">0</div>
+        <div class="streak" id="p1streak"></div>
+        <span class="role flipper" id="p1role" style="display:none">FLIPPER</span>
+      </div>
+    </div>
+
+    <div class="coinzone">
+      <div id="banner"><div id="bannerMain"></div><div id="bannerSub"></div></div>
+      <div class="coin-shadow" id="coinShadow"></div>
+      <div class="coin-toss" id="coinToss">
+        <div class="coin3d idle" id="coin">
+          <div class="face heads"><div class="ring"></div><div class="em">♛</div><div class="lbl">HEADS</div></div>
+          <div class="face tails"><div class="ring"></div><div class="em">⚜</div><div class="lbl">TAILS</div></div>
+        </div>
+      </div>
+      <div id="emoLayer"></div>
+    </div>
+
+    <div id="actions"></div>
+    <div class="history" id="history"><div class="histlbl">Round history</div></div>
+  </section>
+</div>
+
+<!-- CHAT -->
+<button id="chatToggle" style="display:none">💬<span id="chatBadge">0</span></button>
+<div class="panel" id="chatPanel">
+  <header>TABLE TALK <button id="chatClose">✕</button></header>
+  <div id="chatMsgs"></div>
+  <div class="quickemo" id="quickEmo"></div>
+  <div class="chatin">
+    <input type="text" id="chatInput" maxlength="90" placeholder="Say something…">
+    <button id="chatSend">➤</button>
+  </div>
+</div>
+
+<!-- OVERLAYS -->
+<div class="overlay" id="ovEnd">
+  <div class="panel obox">
+    <div style="font-size:56px; margin-bottom:8px">🏆</div>
+    <h2 id="endTitle">Winner!</h2>
+    <div class="fin" id="endScore"></div>
+    <div class="stats">
+      <div class="stat"><h4 id="stH0">—</h4><div id="stB0"></div></div>
+      <div class="stat"><h4 id="stH1">—</h4><div id="stB1"></div></div>
+    </div>
+    <div class="row">
+      <button class="btn btn-gold big" id="btnRematch">🔁 Rematch</button>
+      <button class="btn btn-ghost" id="btnExitEnd">Leave Table</button>
+    </div>
+    <p class="tip" id="rematchWait" style="display:none">Waiting for your friend<span class="dots"></span></p>
+  </div>
+</div>
+<div class="overlay" id="ovLeft">
+  <div class="panel obox">
+    <div style="font-size:50px; margin-bottom:10px">🪑</div>
+    <h2 id="leftTitle">Your friend left the table</h2>
+    <p style="color:#cfe3d3; margin:8px 0 22px" id="leftSub">The match is over.</p>
+    <button class="btn btn-gold big" id="btnExitLeft">Back to Lobby</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" onerror="window.__noPeer=true"></script>
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const FLIP_MS=2050, CODE_CHARS="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const S={mode:null,peer:null,conn:null,meSeat:0,roomCode:"",retries:0,
+  players:[{name:"Player 1",score:0},{name:"Player 2",score:0}],
+  round:1,phase:"idle",caller:1,flipper:0,call:null,result:null,target:5,
+  history:[],rematch:[false,false],inMatch:false,muted:false,unread:0,
+  streak:{seat:null,n:0},stats:{calls:[0,0],callsWon:[0,0],best:[0,0]},nextTimer:null};
+
+/* ---------- ambience ---------- */
+(function(){
+  for(const id of ["bulbsT","bulbsB"]){const el=document.getElementById(id);
+    for(let i=0;i<16;i++)el.appendChild(document.createElement("i"));}
+  const fx=$("#bgfx");
+  for(let i=0;i<14;i++){const s=document.createElement("span");const sz=3+Math.random()*6;
+    s.style.cssText=`left:${Math.random()*100}vw;width:${sz}px;height:${sz}px;animation-duration:${9+Math.random()*14}s;animation-delay:${-Math.random()*20}s`;
+    fx.appendChild(s);}
+  const emos=["🍀","😂","🔥","😭","👏","🪙"];
+  emos.forEach(e=>{const b=document.createElement("button");b.textContent=e;
+    b.onclick=()=>{floatEmo(e);sfx("pop");send({t:"emo",e})};$("#quickEmo").appendChild(b);});
+})();
+
+/* ---------- sound ---------- */
+let AC;function ac(){AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended")AC.resume();return AC;}
+function tone(f,d,type="sine",v=.2,at=0,slide=0){try{const c=ac(),t=c.currentTime+at,o=c.createOscillator(),g=c.createGain();
+  o.type=type;o.frequency.setValueAtTime(f,t);if(slide)o.frequency.exponentialRampToValueAtTime(slide,t+d);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+d);
+  o.connect(g).connect(c.destination);o.start(t);o.stop(t+d+.05);}catch(e){}}
+function whoosh(d=2){try{const c=ac(),len=c.sampleRate*d,b=c.createBuffer(1,len,c.sampleRate),ch=b.getChannelData(0);
+  for(let i=0;i<len;i++)ch[i]=(Math.random()*2-1)*(1-i/len);
+  const n=c.createBufferSource();n.buffer=b;const f=c.createBiquadFilter();f.type="bandpass";f.Q.value=1.4;
+  f.frequency.setValueAtTime(420,c.currentTime);f.frequency.exponentialRampToValueAtTime(1900,c.currentTime+d*.8);
+  const g=c.createGain();g.gain.value=.16;n.connect(f).connect(g).connect(c.destination);n.start();}catch(e){}}
+function sfx(k){if(S.muted)return;switch(k){
+  case"click":tone(540,.06,"square",.12);break;
+  case"call":tone(660,.09,"triangle",.2);tone(880,.12,"triangle",.14,.06);break;
+  case"flip":whoosh(FLIP_MS/1000);break;
+  case"ding":tone(1975,.55,"triangle",.2);tone(2637,.5,"sine",.1,.02);break;
+  case"good":[660,880,1109].forEach((f,i)=>tone(f,.16,"triangle",.18,i*.09));break;
+  case"bad":tone(300,.25,"sawtooth",.1);tone(220,.3,"sawtooth",.09,.12);break;
+  case"win":[523,659,784,1047].forEach((f,i)=>tone(f,.22,"triangle",.2,i*.14));break;
+  case"pop":tone(280,.16,"sine",.22,0,620);break;
+  case"join":tone(440,.12,"triangle",.18);tone(587,.16,"triangle",.18,.1);break;}}
+$("#muteBtn").onclick=()=>{S.muted=!S.muted;$("#muteBtn").textContent=S.muted?"🔇":"🔊";if(!S.muted)sfx("click");};
+
+/* ---------- helpers ---------- */
+function show(id){document.querySelectorAll(".screen").forEach(s=>s.classList.remove("on"));$(id).classList.add("on");}
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("on"),2600);}
+function myName(){return ($("#nameInput").value.trim()||"Player "+(S.meSeat+1)).slice(0,14);}
+function send(o){if(S.conn&&S.conn.open){try{S.conn.send(o);}catch(e){}}}
+function seatName(i){return S.players[i].name;}
+
+/* ---------- networking ---------- */
+function genCode(){let c="";for(let i=0;i<5;i++)c+=CODE_CHARS[Math.floor(Math.random()*CODE_CHARS.length)];return c;}
+function wire(c){
+  c.on("data",handle);
+  c.on("open",()=>{
+    sfx("join");send({t:"hello",name:myName()});
+    if(S.mode==="online-host"){updateWaiting(true);}
+    else{updateWaiting(true);}
+    $("#chatToggle").style.display="block";
+    sysChat(S.mode==="online-host"?"Friend connected — let's toss!":"Connected to the table!");
+  });
+  c.on("close",()=>{if(S.inMatch)showLeft("The connection dropped.","Maybe a network blip — head back and start a new room.");});
+}
+function createRoom(){
+  if(window.__noPeer||typeof Peer==="undefined"){toast("Online mode needs internet access");return;}
+  if(S.peer){try{S.peer.destroy();}catch(e){}}
+  S.mode="online-host";S.meSeat=0;S.roomCode=genCode();
+  S.peer=new Peer("toss-"+S.roomCode);
+  S.peer.on("open",()=>{show("#scrWait");prepWaiting(true);});
+  S.peer.on("connection",c=>{if(S.conn&&S.conn.open){try{c.close();}catch(e){}return;}S.conn=c;wire(c);});
+  S.peer.on("error",e=>{
+    if(e.type==="unavailable-id"&&S.retries<4){S.retries++;createRoom();}
+    else if(e.type!=="peer-unavailable"){toast("Network hiccup — check your internet");}
+  });
+}
+function joinRoom(){
+  if(window.__noPeer||typeof Peer==="undefined"){toast("Online mode needs internet access");return;}
+  const code=$("#joinCode").value.trim().toUpperCase();
+  if(code.length!==5){toast("Room codes are 5 characters");return;}
+  if(S.peer){try{S.peer.destroy();}catch(e){}}
+  S.mode="online-guest";S.meSeat=1;S.roomCode=code;
+  S.peer=new Peer();
+  S.peer.on("open",()=>{
+    S.conn=S.peer.connect("toss-"+code,{reliable:true});
+    wire(S.conn);show("#scrWait");prepWaiting(false);
+    setTimeout(()=>{if(S.mode==="online-guest"&&(!S.conn||!S.conn.open)){
+      toast("Room not found — double-check the code");goSetup();}},9000);
+  });
+  S.peer.on("error",e=>{if(e.type==="peer-unavailable"){toast("Room not found — double-check the code");goSetup();}});
+}
+function prepWaiting(host){
+  $("#codeTicket").textContent=S.roomCode;
+  $("#codeWrap").style.display=host?"block":"none";
+  $("#hostCtl").style.display=host?"block":"none";
+  $("#waitTitle").textContent=host?"Your room is open!":"Joining room "+S.roomCode+"…";
+  updateWaiting(false);
+}
+function updateWaiting(joined){
+  const host=S.mode==="online-host";
+  const other=host?seatName(1):seatName(0);
+  const st=$("#waitStatus");
+  if(joined||seatName(host?1:0)!=="Player "+(host?2:1)){
+    st.innerHTML="✅ <b>"+other+"</b> is at the table!";
+    if(host){$("#btnStart").disabled=false;$("#btnStart").classList.add("startpulse");
+      $("#waitTitle").textContent="Table's set — start when ready";}
+    else{$("#waitTitle").textContent="You're in!";st.innerHTML="✅ Connected with <b>"+other+"</b> — waiting for them to start<span class='dots'></span>";}
+  } else if(!host){st.innerHTML="<span class='spincoin'></span>Knocking on the door<span class='dots'></span>";}
+}
+function bye(){send({t:"bye"});}
+function teardown(){
+  if(S.nextTimer)clearTimeout(S.nextTimer);
+  try{if(S.conn)S.conn.close();}catch(e){}
+  try{if(S.peer)S.peer.destroy();}catch(e){}
+  S.conn=S.peer=null;
+}
+function goSetup(){
+  teardown();S.mode=null;S.inMatch=false;S.phase="idle";
+  S.players=[{name:"Player 1",score:0},{name:"Player 2",score:0}];
+  $("#chatToggle").style.display="none";$("#chatPanel").classList.remove("on");
+  $("#ovEnd").classList.remove("on");$("#ovLeft").classList.remove("on");
+  show("#scrSetup");
+}
+
+/* ---------- messages ---------- */
+function handle(m){if(!m||!m.t)return;switch(m.t){
+  case"hello":{const seat=S.mode==="online-host"?1:0;S.players[seat].name=(m.name||"Player "+(seat+1)).slice(0,14);
+    if(S.mode==="online-host")send({t:"settings",target:$("#selTarget").value|0||5});
+    updateWaiting(true);sfx("join");break;}
+  case"settings":S.target=m.target;$("#targetNum").textContent=m.target;break;
+  case"start":startMatch(m.target);break;
+  case"call":recvCall(m.c);break;
+  case"flip":recvFlip(m.r);break;
+  case"rematch":S.rematch[1-S.meSeat]=true;checkRematch();break;
+  case"chat":addChat(seatName(1-S.meSeat),m.x,false);break;
+  case"emo":floatEmo(m.e);sfx("pop");break;
+  case"bye":if(S.inMatch)showLeft(seatName(1-S.meSeat)+" left the table.","The match is over — spin up a new room for a rematch.");break;
+}}
+
+/* ---------- match flow ---------- */
+function startMatch(target){
+  if(S.nextTimer)clearTimeout(S.nextTimer);
+  S.target=target;S.round=1;S.phase="call";S.caller=1;S.flipper=0;
+  S.call=null;S.result=null;S.history=[];S.rematch=[false,false];
+  S.streak={seat:null,n:0};S.stats={calls:[0,0],callsWon:[0,0],best:[0,0]};
+  S.players.forEach(p=>p.score=0);S.inMatch=true;
+  $("#ovEnd").classList.remove("on");$("#banner").classList.remove("show");
+  const coin=$("#coin");coin.classList.add("idle");coin.style.transition="none";coin.style.transform="";
+  show("#scrGame");renderAll();
+  sysChat("Match started — first to "+target+"! "+seatName(S.flipper)+" flips, "+seatName(S.caller)+" calls.");
+  sfx("good");
+}
+function doCall(c){
+  if(S.phase!=="call")return;
+  if(S.mode!=="local"&&S.meSeat!==S.caller)return;
+  S.call=c;S.phase="called";send({t:"call",c});sfx("call");renderActions();
+}
+function recvCall(c){if(S.phase!=="call")return;S.call=c;S.phase="called";sfx("call");renderActions();}
+function doFlip(){
+  if(S.phase!=="called")return;
+  if(S.mode!=="local"&&S.meSeat!==S.flipper)return;
+  const r=Math.random()<0.5?"H":"T";send({t:"flip",r});beginFlip(r);
+}
+function recvFlip(r){if(S.phase!=="called")return;beginFlip(r);}
+let coinRot=0;
+function beginFlip(result){
+  S.phase="flipping";S.result=result;renderActions();
+  const coin=$("#coin");coin.classList.remove("idle");
+  const turns=(5+Math.floor(Math.random()*2))*360;
+  let end=coinRot+turns;end=Math.round(end/360)*360+(result==="T"?180:0);coinRot=end;
+  requestAnimationFrame(()=>{coin.style.transition="transform "+FLIP_MS+"ms cubic-bezier(.15,.85,.25,1)";
+    coin.style.transform="rotateX("+end+"deg)";});
+  $("#coinToss").animate([
+    {transform:"translateY(0) scale(1)"},
+    {transform:"translateY(-128px) scale(1.05)",offset:.42},
+    {transform:"translateY(0) scale(1)"},
+    {transform:"translateY(0) scaleY(.93) scaleX(1.06)",offset:.93},
+    {transform:"translateY(0) scale(1)"}],{duration:FLIP_MS,easing:"ease-in-out"});
+  $("#coinShadow").animate([
+    {transform:"scaleX(1)",opacity:.9},{transform:"scaleX(.45)",opacity:.3,offset:.42},
+    {transform:"scaleX(1)",opacity:.9},{transform:"scaleX(1.15)",opacity:1,offset:.93},{transform:"scaleX(1)",opacity:.9}],
+    {duration:FLIP_MS,easing:"ease-in-out"});
+  sfx("flip");
+  setTimeout(resolveRound,FLIP_MS+220);
+}
+function resolveRound(){
+  if(S.phase!=="flipping")return;
+  const callWon=S.call===S.result;
+  const winner=callWon?S.caller:S.flipper;
+  S.players[winner].score++;
+  S.stats.calls[S.caller]++;if(callWon)S.stats.callsWon[S.caller]++;
+  if(S.streak.seat===winner)S.streak.n++;else S.streak={seat:winner,n:1};
+  S.stats.best[winner]=Math.max(S.stats.best[winner],S.streak.n);
+  S.history.push({r:S.result,w:winner});
+  sfx("ding");
+  const side=(S.mode==="local"||winner===S.meSeat);
+  setTimeout(()=>sfx(side?"good":"bad"),320);
+  $("#bannerMain").textContent=S.result==="H"?"★ HEADS! ★":"✦ TAILS! ✦";
+  $("#bannerSub").textContent=seatName(winner)+(callWon?" called it right  +1":" takes the round  +1");
+  const b=$("#banner");b.classList.remove("show");void b.offsetWidth;b.classList.add("show");
+  if(S.players[winner].score>=S.target){S.phase="over";renderAll();setTimeout(showMatchEnd,1500);}
+  else{S.phase="result";renderAll();S.nextTimer=setTimeout(nextRound,2400);}
+}
+function nextRound(){
+  S.round++;const f=S.flipper;S.flipper=S.caller;S.caller=f;
+  S.call=null;S.result=null;S.phase="call";
+  $("#banner").classList.remove("show");renderAll();
+}
+function showMatchEnd(){
+  const w=S.players[0].score>=S.target?0:1;
+  const iWon=S.mode==="local"||w===S.meSeat;
+  $("#endTitle").textContent=seatName(w)+" wins the match!";
+  $("#endScore").textContent=seatName(0)+"  "+S.players[0].score+"  —  "+S.players[1].score+"  "+seatName(1);
+  for(let i=0;i<2;i++){
+    $("#stH"+i).textContent=seatName(i)+(S.mode!=="local"&&i===S.meSeat?" (you)":"");
+    const acc=S.stats.calls[i]?Math.round(100*S.stats.callsWon[i]/S.stats.calls[i])+"%":"—";
+    $("#stB"+i).innerHTML="Rounds won: <b>"+S.players[i].score+"</b><br>Call accuracy: <b>"+acc+"</b><br>Best streak: <b>"+S.stats.best[i]+" 🔥</b>";
+  }
+  $("#btnRematch").textContent="🔁 Rematch";$("#btnRematch").disabled=false;
+  $("#rematchWait").style.display="none";
+  $("#ovEnd").classList.add("on");confetti();sfx(iWon?"win":"bad");
+}
+function doRematch(){
+  if(S.rematch[S.meSeat])return;
+  S.rematch[S.meSeat]=true;send({t:"rematch"});
+  $("#btnRematch").disabled=true;$("#btnRematch").textContent="✓ Ready!";
+  $("#rematchWait").style.display="block";sfx("click");checkRematch();
+}
+function checkRematch(){
+  if(S.rematch[0]&&S.rematch[1]){toast("Rematch! 🪙");startMatch(S.target);}
+  else if(S.rematch[1-S.meSeat]){sysChat(seatName(1-S.meSeat)+" wants a rematch!");}
+}
+function showLeft(title,sub){
+  $("#leftTitle").textContent=title;$("#leftSub").textContent=sub;
+  $("#ovLeft").classList.add("on");S.inMatch=false;
+}
+
+/* ---------- rendering ---------- */
+function renderAll(){
+  $("#p0name").textContent=seatName(0);$("#p1name").textContent=seatName(1);
+  $("#p0score").textContent=S.players[0].score;$("#p1score").textContent=S.players[1].score;
+  $("#p0you").style.display=(S.mode!=="local"&&S.meSeat===0)?"inline-block":"none";
+  $("#p1you").style.display=(S.mode!=="local"&&S.meSeat===1)?"inline-block":"none";
+  $("#roundNum").textContent=S.round;$("#targetNum").textContent=S.target;
+  for(let i=0;i<2;i++){
+    $("#p"+i+"streak").textContent=(S.streak.seat===i&&S.streak.n>=2)?"🔥 ×"+S.streak.n:"";
+    const role=$("#p"+i+"role");
+    const isCaller=S.caller===i, isFlip=S.flipper===i;
+    role.style.display=(S.phase==="over")?"none":"inline-block";
+    role.className="role "+(isCaller?"caller":"flipper");
+    role.textContent=isCaller?"CALLER":"FLIPPER";
+    $("#pp"+i).classList.toggle("active",S.phase!=="over"&&(
+      (S.phase==="call"&&isCaller)||(S.phase==="called"&&isFlip)));
+  }
+  renderHistory();renderActions();
+}
+function renderHistory(){
+  const h=$("#history");h.innerHTML='<div class="histlbl">Round history</div>';
+  S.history.slice(-14).forEach(x=>{const d=document.createElement("div");
+    d.className="hcoin "+x.r+" w"+x.w;d.textContent=x.r;d.title=(x.r==="H"?"Heads":"Tails")+" — won by "+seatName(x.w);
+    h.appendChild(d);});
+}
+function renderActions(){
+  const a=$("#actions");const live=S.phase!=="over";
+  const cap=n=>n==="H"?"HEADS":"TAILS";
+  if(!live){a.innerHTML="";return;}
+  const local=S.mode==="local";
+  const myTurnCall=local||S.meSeat===S.caller;
+  const myTurnFlip=local||S.meSeat===S.flipper;
+  if(S.phase==="call"){
+    a.innerHTML=`<div class="prompt">${local?seatName(S.caller)+", you're calling it!":
+      (myTurnCall?"Your call — what'll it be?":seatName(S.caller)+" is calling it<span class='dots'></span>")}
+      <small>Round ${S.round} · ${seatName(S.flipper)} flips · ${seatName(S.caller)} calls</small></div>
+      ${myTurnCall?`<div class="callbtns">
+        <button class="callbtn h" onclick="doCall('H')"><span class="mini">♛</span>HEADS</button>
+        <button class="callbtn t" onclick="doCall('T')"><span class="mini">⚜</span>TAILS</button></div>`:""}`;
+  }else if(S.phase==="called"){
+    a.innerHTML=`<div class="prompt">${local?seatName(S.flipper)+", give it a toss!":
+      (myTurnFlip?seatName(S.caller)+" called <b>"+cap(S.call)+"</b> — let it fly!":
+      seatName(S.flipper)+" is winding up<span class='dots'></span>")}
+      <small>Called: ${cap(S.call)}</small></div>
+      ${myTurnFlip?`<button class="btn btn-gold big" onclick="doFlip()">🪙 FLIP!</button>`:""}`;
+  }else if(S.phase==="flipping"){
+    a.innerHTML=`<div class="prompt">Coin's in the air<span class="dots"></span><small>${seatName(S.caller)} called ${cap(S.call)}</small></div>`;
+  }else if(S.phase==="result"){
+    a.innerHTML=`<div class="prompt">Get ready — roles swap next round<small>Next: ${seatName(S.flipper===0?1:0)} flips · ${seatName(S.flipper)} calls</small></div>`;
+  }
+}
+
+/* ---------- chat & emoji ---------- */
+function addChat(who,text,mine){
+  const box=$("#chatMsgs");const d=document.createElement("div");
+  d.className="msg "+(mine?"me":"them");
+  d.innerHTML="<b></b>";d.querySelector("b").textContent=who;
+  d.appendChild(document.createTextNode(text));box.appendChild(d);box.scrollTop=box.scrollHeight;
+  if(!mine&&!$("#chatPanel").classList.contains("on")){S.unread++;const b=$("#chatBadge");b.textContent=S.unread;b.style.display="grid";}
+}
+function sysChat(text){const box=$("#chatMsgs");const d=document.createElement("div");
+  d.className="msg sys";d.textContent=text;box.appendChild(d);box.scrollTop=box.scrollHeight;}
+function sendChat(){const v=$("#chatInput").value.trim();if(!v)return;
+  addChat(S.mode==="local"?"You":myName(),v,true);send({t:"chat",x:v});$("#chatInput").value="";sfx("click");}
+function floatEmo(e){const s=document.createElement("span");s.className="bigemo";s.textContent=e;
+  s.style.left=(32+Math.random()*32)+"%";$("#emoLayer").appendChild(s);setTimeout(()=>s.remove(),2600);}
+function confetti(){const c=$("#confetti"),cols=["#f3c14b","#ffdf8e","#e0574b","#f6ecd4","#7fd6ae","#cfd6df"];
+  for(let i=0;i<90;i++){const d=document.createElement("i");const s=6+Math.random()*8;
+    d.style.cssText=`left:${Math.random()*100}%;width:${s}px;height:${s*1.5}px;background:${cols[i%6]};
+    animation-duration:${2.6+Math.random()*2.4}s;animation-delay:${Math.random()*.9}s`;
+    c.appendChild(d);setTimeout(()=>d.remove(),6500);}}
+
+/* ---------- wire the UI ---------- */
+$("#btnCreate").onclick=()=>{sfx("click");S.retries=0;createRoom();};
+$("#btnJoin").onclick=()=>{sfx("click");joinRoom();};
+$("#joinCode").addEventListener("input",e=>e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,5));
+$("#joinCode").addEventListener("keydown",e=>{if(e.key==="Enter")joinRoom();});
+$("#btnLocal").onclick=()=>{sfx("click");S.mode="local";S.meSeat=0;
+  const n=$("#nameInput").value.trim();
+  S.players=[{name:n||"Player 1",score:0},{name:"Player 2",score:0}];
+  startMatch(parseInt($("#selLocal").value,10));};
+$("#btnCopy").onclick=async()=>{sfx("click");
+  try{await navigator.clipboard.writeText(S.roomCode);toast("Code copied — send it to your friend! 📋");}
+  catch(e){toast("Your code: "+S.roomCode);}};
+$("#btnStart").onclick=()=>{sfx("good");const t=parseInt($("#selTarget").value,10);
+  send({t:"start",target:t});startMatch(t);};
+$("#selTarget").onchange=e=>{send({t:"settings",target:parseInt(e.target.value,10)});};
+$("#btnCancel").onclick=()=>{sfx("click");bye();goSetup();};
+$("#btnRematch").onclick=doRematch;
+$("#btnExitEnd").onclick=()=>{bye();goSetup();};
+$("#btnExitLeft").onclick=()=>{bye();goSetup();};
+$("#chatToggle").onclick=()=>{const p=$("#chatPanel");p.classList.toggle("on");
+  if(p.classList.contains("on")){S.unread=0;$("#chatBadge").style.display="none";$("#chatMsgs").scrollTop=1e9;}};
+$("#chatClose").onclick=()=>$("#chatPanel").classList.remove("on");
+$("#chatSend").onclick=sendChat;
+$("#chatInput").addEventListener("keydown",e=>{if(e.key==="Enter")sendChat();});
+window.addEventListener("beforeunload",()=>{try{send({t:"bye"});}catch(e){}});
+</script>
+</body>
+</html>
